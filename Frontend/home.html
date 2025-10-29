@@ -1,0 +1,236 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Task Manager • Welcome</title>
+  <meta name="color-scheme" content="light">
+  <script>
+    // Use same-origin API in dev/prod (Express serves /api)
+    window.API_BASE = "/api";
+
+    // If already authenticated, go straight to the app
+    (async () => {
+      try {
+        const r = await fetch(`${window.API_BASE}/auth/me`, { credentials:'include' });
+        if (r.ok) window.location.replace('index.html');
+      } catch {}
+    })();
+  </script>
+  <style>
+    /* --------- LIGHT THEME --------- */
+    :root{
+      --bg:#ffffff; --panel:#ffffff; --card:#ffffff; --muted:#64748b; --text:#0f172a;
+      --brand:#2563eb; --brand2:#7c3aed; --ok:#16a34a; --warn:#f59e0b; --danger:#dc2626; --border:#e5e7eb;
+      --chip:#f1f5f9; --shadow-lg:0 20px 60px rgba(0,0,0,.08); --shadow-md:0 12px 32px rgba(0,0,0,.06);
+      --input:#ffffff; --input-text:#0f172a;
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0; min-height:100svh; color:var(--text); background:var(--bg);
+      font:15px/1.5 system-ui,Segoe UI,Roboto,Helvetica,Arial;
+      display:grid; place-items:center; padding:24px;
+    }
+    .shell{ width:min(1000px, 96vw); display:grid; gap:20px; grid-template-columns:1.2fr .8fr; }
+    @media (max-width:900px){ .shell{ grid-template-columns:1fr; } }
+
+    .hero{
+      background:var(--panel); border:1px solid var(--border); border-radius:20px; padding:28px;
+      box-shadow:var(--shadow-lg);
+      display:flex; flex-direction:column; justify-content:center; gap:16px;
+    }
+    .hero h1{ font-size:clamp(26px,4vw,36px); margin:0; letter-spacing:.3px }
+    .hero p{ margin:0; color:var(--muted); max-width:62ch }
+    .bullets{ display:grid; gap:10px; margin-top:8px }
+    .pill{ display:inline-flex; align-items:center; gap:8px; padding:8px 12px; border-radius:999px;
+           border:1px solid var(--border); color:var(--text); background:var(--chip); width:fit-content; }
+    .tiny{ font-size:12px; color:var(--muted) }
+
+    .card{
+      background:var(--card); border:1px solid var(--border); border-radius:20px; padding:20px;
+      box-shadow:var(--shadow-md);
+    }
+    .tabs{ display:flex; gap:8px; margin-bottom:14px }
+    .tab{ flex:1; text-align:center; padding:10px; border-radius:12px; border:1px solid var(--border);
+          background:#fff; cursor:pointer; color:var(--text); }
+    .tab.active{ background:#e0ecff; border-color:#bfdbfe; color:#1e3a8a; }
+
+    form{ display:grid; gap:10px }
+    input{
+      width:100%; padding:12px; border-radius:12px; border:1px solid var(--border);
+      background:var(--input); color:var(--input-text)
+    }
+
+    .btn{ padding:10px 14px; border-radius:12px; border:1px solid var(--border); background:#fff; color:var(--text); cursor:pointer }
+    .btn.brand{ background:linear-gradient(90deg,var(--brand),var(--brand2)); border:0; color:#fff; font-weight:700 }
+    .btn.ghost{ background:transparent }
+    .btn[disabled]{ opacity:.6; cursor:not-allowed }
+
+    .row{ display:grid; gap:10px; grid-template-columns:1fr 1fr }
+    @media (max-width:520px){ .row{ grid-template-columns:1fr } }
+
+    .msg{ min-height:1.2em; font-size:13px; color:var(--muted) }
+    .success{ color:var(--ok) } .error{ color:var(--danger) }
+
+    footer{ margin-top:8px; text-align:center }
+
+    /* Toast */
+    .toast { position:fixed; left:50%; transform:translateX(-50%);
+             bottom:22px; background:#111827; border:1px solid #1f2937;
+             color:#e5e7eb; padding:10px 14px; border-radius:12px;
+             box-shadow:0 10px 30px rgba(0,0,0,.25); opacity:0; transition:.2s }
+    .toast.show { opacity:1 }
+  </style>
+</head>
+<body>
+
+  <div class="shell">
+    <!-- Left: Hero / marketing -->
+    <section class="hero" aria-label="Welcome">
+      <div class="pill">🚀 Task Management System</div>
+      <h1>Track your tasks with confidence.</h1>
+      <p>Sign up or log in to manage your to-dos. This app is wired for teams and accountability.</p>
+      <div class="bullets">
+        <div class="pill">✅ Add new tasks when assigned</div>
+        <div class="pill">🔄 Track existing and open tasks</div>
+        <div class="pill">🗄️ Close tasks and view details</div>
+      </div>
+      <div class="tiny">By continuing you agree to our Terms & Privacy.</div>
+    </section>
+
+    <!-- Right: Auth card -->
+    <section class="card" aria-label="Authentication">
+      <div class="tabs">
+        <button class="tab active" id="tabLogin"  aria-controls="panelLogin"  aria-selected="true">Login</button>
+        <button class="tab"        id="tabSignup" aria-controls="panelSignup" aria-selected="false">Sign Up</button>
+      </div>
+
+      <!-- Login -->
+      <div id="panelLogin">
+        <form id="loginForm" novalidate>
+          <input type="email" id="loginEmail" placeholder="Email" autocomplete="username" required />
+          <input type="password" id="loginPassword" placeholder="Password" autocomplete="current-password" required />
+          <button class="btn brand" type="submit">Sign in</button>
+          <div class="msg" id="loginMsg"></div>
+        </form>
+      </div>
+
+      <!-- Sign Up -->
+      <div id="panelSignup" hidden>
+        <form id="signupForm" novalidate>
+          <input type="email" id="signupEmail" placeholder="Email" autocomplete="username" required />
+          <div class="row">
+            <input type="password" id="signupPassword"  placeholder="Password (min 8 chars)" autocomplete="new-password" required />
+            <input type="password" id="signupPassword2" placeholder="Confirm password"       autocomplete="new-password" required />
+          </div>
+          <button class="btn brand" type="submit">Create account</button>
+          <div class="msg" id="signupMsg"></div>
+        </form>
+      </div>
+
+      <footer class="tiny">Problems signing in? Contact support.</footer>
+    </section>
+  </div>
+
+  <!-- Toast -->
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <script>
+    function setMsg(el, text, type){ el.textContent = text||""; el.className = "msg" + (type?(" "+type):""); }
+    function showToast(text, ms=1600){
+      const t = document.getElementById('toast');
+      t.textContent = text; t.classList.add('show');
+      setTimeout(()=> t.classList.remove('show'), ms);
+    }
+  </script>
+
+  <script>
+    // === Config ===
+    const API_BASE = window.API_BASE || "/api";
+
+    // Tabs
+    const tabLogin   = document.getElementById('tabLogin');
+    const tabSignup  = document.getElementById('tabSignup');
+    const panelLogin = document.getElementById('panelLogin');
+    const panelSignup= document.getElementById('panelSignup');
+
+    function show(tab){
+      const loginActive = tab === 'login';
+      tabLogin.classList.toggle('active', loginActive);
+      tabSignup.classList.toggle('active', !loginActive);
+      tabLogin.setAttribute('aria-selected', loginActive);
+      tabSignup.setAttribute('aria-selected', !loginActive);
+      panelLogin.hidden  = !loginActive;
+      panelSignup.hidden =  loginActive;
+    }
+    tabLogin.onclick  = () => show('login');
+    tabSignup.onclick = () => show('signup');
+
+    // === Login ===
+    document.getElementById('loginForm').addEventListener('submit', async (e)=>{
+      e.preventDefault();
+      const email    = document.getElementById('loginEmail').value.trim();
+      const password = document.getElementById('loginPassword').value;
+      const msg = document.getElementById('loginMsg');
+      setMsg(msg, 'Signing in…', '');
+
+      try{
+        const res  = await fetch(`${API_BASE}/auth/login`, {
+          method:'POST',
+          headers:{ 'Content-Type':'application/json' },
+          credentials:'include',  // send/receive cookie
+          body: JSON.stringify({ email, password })
+        });
+        const data = await res.json().catch(()=> ({}));
+        if(!res.ok) throw new Error(data.error || 'Login failed');
+        setMsg(msg, data.message || 'Login successful', 'success');
+        setTimeout(()=> window.location.href = 'index.html', 400);
+      }catch(err){
+        setMsg(msg, err.message, 'error');
+      }
+    });
+
+    // === Sign Up ===
+    document.getElementById('signupForm').addEventListener('submit', async (e)=>{
+      e.preventDefault();
+      const email = document.getElementById('signupEmail').value.trim();
+      const p1    = document.getElementById('signupPassword').value;
+      const p2    = document.getElementById('signupPassword2').value;
+      const msg   = document.getElementById('signupMsg');
+      const btn   = e.submitter || e.target.querySelector('button[type="submit"]');
+
+      setMsg(msg, "", "");
+      if(p1.length < 8){ return setMsg(msg, "Password should be at least 8 characters.", "error"); }
+      if(p1 !== p2){   return setMsg(msg, "Passwords do not match.", "error"); }
+
+      btn.disabled = true; setMsg(msg, "Creating your account…", "");
+      try{
+        const res  = await fetch(`${API_BASE}/auth/signup`, {
+          method:'POST',
+          headers:{ 'Content-Type':'application/json' },
+          credentials:'include',
+          cache:'no-store',
+          body: JSON.stringify({ email, password: p1 })
+        });
+        const data = await res.json().catch(()=> ({}));
+
+        if(res.status === 409){
+          setMsg(msg, data.error || "Email already registered. Try logging in.", "error");
+          btn.disabled = false; return;
+        }
+        if(!res.ok){
+          setMsg(msg, data.error || "Sign up failed. Please try again.", "error");
+          btn.disabled = false; return;
+        }
+
+        setMsg(msg, data.message || "Account created successfully!", "success");
+        showToast("Signed up ✅ Redirecting…");
+        setTimeout(()=> window.location.href = 'index.html', 400);
+      }catch(err){
+        setMsg(msg, "Network error. Please try again.", "error");
+        btn.disabled = false;
+      }
+    });
+  </script>
+  <script>window.API_BASE="/api";</script>
+</body>
+</html>
