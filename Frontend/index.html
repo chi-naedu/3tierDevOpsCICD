@@ -4,77 +4,164 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Task Management System</title>
+
+  <script>
+    // Use relative API base; Express serves /api on the same origin
+    window.API_BASE = "/api";
+    const API_BASE = window.API_BASE;
+
+    // Gate this page: if not authenticated, send user to home.html
+    (async () => {
+      try {
+        const r = await fetch(`${API_BASE}/auth/me`, { credentials: 'include' });
+        if (!r.ok) { window.location.replace('home.html'); return; }
+        const me = await r.json();
+        document.documentElement.dataset.auth = "yes";
+        window.CURRENT_USER = me;
+        // show "Signed in as"
+        window.addEventListener("DOMContentLoaded", () => {
+          const who = document.getElementById("signedInAs");
+          if (who && me?.email) who.textContent = `Signed in as ${me.email}`;
+        });
+      } catch {
+        window.location.replace('home.html');
+      }
+    })();
+  </script>
+
   <style>
+    /* ---------- LIGHT THEME VARIABLES ---------- */
     :root{
-      --bg:#0f172a; --card:#111827; --muted:#94a3b8; --text:#e5e7eb; --brand:#22d3ee; --brand-2:#8b5cf6;
-      --ok:#22c55e; --warn:#f97316; --danger:#ef4444; --border:#1f2937;
+      --bg:#ffffff; 
+      --panel:#ffffff; 
+      --card:#ffffff; 
+      --muted:#64748b; 
+      --text:#0f172a; 
+      --brand:#2563eb;       /* blue-600 */
+      --brand-2:#7c3aed;     /* violet-600 */
+      --ok:#16a34a;          /* green-600 */
+      --warn:#f59e0b;        /* amber-500 */
+      --danger:#dc2626;      /* red-600 */
+      --border:#e5e7eb;      /* gray-200 */
+      --chip:#f1f5f9;        /* slate-100 */
+      --shadow:0 6px 18px rgba(0,0,0,.06);
+      --input:#ffffff;
+      --input-text:#0f172a;
     }
+
     *{box-sizing:border-box}
-    body{margin:0;background:linear-gradient(120deg,var(--bg),#0b132e);color:var(--text);font:15px/1.5 system-ui,Segoe UI,Roboto,Helvetica,Arial}
-    header{padding:28px 20px;text-align:center;background:
-      radial-gradient(80% 60% at 50% -10%, rgba(34,211,238,.25), transparent 60%),
-      radial-gradient(70% 50% at 90% 10%, rgba(139,92,246,.2), transparent 70%)}
+    body{
+      margin:0;
+      background:var(--bg);
+      color:var(--text);
+      font:15px/1.5 system-ui,Segoe UI,Roboto,Helvetica,Arial;
+    }
+
+    header{
+      padding:22px 20px;
+      text-align:center;
+      background:#fafafa;
+      border-bottom:1px solid var(--border);
+      position:relative;
+    }
+
     h1{margin:.2rem 0;font-weight:800;letter-spacing:.2px}
     .tag{color:var(--muted);font-size:13px}
 
+    /* Signed-in label + logout */
+    #signedInAs{ position:absolute; left:16px; top:16px; font-size:13px; color:var(--muted); }
+    #logoutBtn{ position:absolute; right:16px; top:14px; }
+
     .container{max-width:1100px;margin:20px auto;padding:0 16px}
-    .toolbar{display:grid;gap:10px;grid-template-columns:1.4fr .8fr .8fr .6fr;align-items:center}
-    .toolbar input[type="text"], .toolbar select{
-      width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:10px;background:#0b1220;color:var(--text)
+
+    .toolbar{
+      display:grid;gap:10px;
+      grid-template-columns:1.4fr .8fr .8fr .6fr;
+      align-items:center
     }
-    .add{display:flex;gap:10px}
-    .add input{flex:1}
-    .btn{padding:10px 12px;border:1px solid var(--border);border-radius:10px;background:#0b1220;color:var(--text);cursor:pointer}
-    .btn.brand{background:linear-gradient(90deg,var(--brand),var(--brand-2));border:none;color:#041016;font-weight:700}
+    @media (max-width:900px){
+      .toolbar{grid-template-columns:1fr}
+    }
+
+    input[type="text"], select{
+      width:100%;padding:10px 12px;border:1px solid var(--border);
+      border-radius:10px;background:var(--input);color:var(--input-text)
+    }
+
+    .btn{
+      padding:10px 12px;border:1px solid var(--border);
+      border-radius:10px;background:#ffffff;color:var(--text);cursor:pointer
+    }
+    .btn.brand{
+      background:linear-gradient(90deg,var(--brand),var(--brand-2));
+      border:none;color:#fff;font-weight:700
+    }
     .btn.ghost{background:transparent}
     .btn:disabled{opacity:.5;cursor:not-allowed}
 
     .grid{display:grid;grid-template-columns:1.1fr .9fr;gap:16px;margin-top:16px}
-    @media (max-width:900px){ .toolbar{grid-template-columns:1fr} .grid{grid-template-columns:1fr} }
+    @media (max-width:900px){ .grid{grid-template-columns:1fr} }
 
-    .card{background:var(--card);border:1px solid var(--border);border-radius:16px;box-shadow:0 6px 18px rgba(0,0,0,.25)}
+    .card{
+      background:var(--card);
+      border:1px solid var(--border);
+      border-radius:16px;
+      box-shadow:var(--shadow)
+    }
     .card h2{margin:0;padding:14px 16px;border-bottom:1px solid var(--border);font-size:18px}
     .card .body{padding:14px 16px}
 
     .list{display:flex;flex-direction:column;gap:8px}
-    .item{display:grid;grid-template-columns:auto 1fr auto auto;gap:10px;align-items:center;padding:10px;border:1px solid var(--border);border-radius:12px;background:#0b1220}
-    .item:hover{border-color:#293548}
+    .item{
+      display:grid;grid-template-columns:auto 1fr auto auto;gap:10px;align-items:center;
+      padding:10px;border:1px solid var(--border);border-radius:12px;background:#fff
+    }
+    .item:hover{border-color:#cbd5e1}
     .item input[type=checkbox]{transform:scale(1.2)}
     .title{cursor:pointer}
     .title.done{color:var(--muted);text-decoration:line-through}
-    .badge{font-size:12px;padding:2px 8px;border-radius:999px;border:1px solid var(--border);color:var(--muted)}
+    .badge{font-size:12px;padding:2px 8px;border-radius:999px;border:1px solid var(--border);color:var(--muted);background:#fff}
     .actions button{margin-left:6px}
 
     .viewer .row{margin-bottom:10px}
-    .viewer input[type="text"]{width:100%;padding:10px;border:1px solid var(--border);border-radius:10px;background:#0b1220;color:var(--text)}
+    .viewer input[type="text"]{width:100%;padding:10px;border:1px solid var(--border);border-radius:10px;background:#fff;color:var(--text)}
     .muted{color:var(--muted)}
     .stat{font-size:13px;color:var(--muted);margin-top:6px}
 
     .filters{display:flex;gap:6px;flex-wrap:wrap}
-    .chip{padding:6px 10px;border-radius:999px;border:1px solid var(--border);cursor:pointer;background:transparent;color:var(--text)}
-    .chip.active{background:#162035;border-color:#2b3a52}
-    .bulk{display:flex;gap:8px;flex-wrap:wrap}
+    .chip{
+      padding:6px 10px;border-radius:999px;border:1px solid var(--border);
+      cursor:pointer;background:var(--chip);color:var(--text)
+    }
+    .chip.active{
+      background:#e0ecff;border-color:#bfdbfe;color:#1e3a8a
+    }
   </style>
 </head>
 <body>
   <header>
+    <div id="signedInAs"></div>
+    <button id="logoutBtn" class="btn">Logout</button>
     <h1>Task Management System</h1>
-    <div class="tag">Stay Informed! </div>
+    <div class="tag">Stay Informed!</div>
   </header>
 
   <div class="container">
     <!-- Controls -->
     <div class="toolbar">
-      <div class="add">
+      <div class="add" style="display:flex;gap:10px;width:100%">
         <input id="newTitle" type="text" placeholder="Add a new task…" />
         <button id="addBtn" class="btn brand">Add</button>
       </div>
+
       <input id="search" type="text" placeholder="Search tasks…" />
+
       <div class="filters">
         <button class="chip active" data-filter="all">All</button>
         <button class="chip" data-filter="active">Active</button>
         <button class="chip" data-filter="completed">Completed</button>
       </div>
+
       <select id="sort">
         <option value="newest">Newest</option>
         <option value="oldest">Oldest</option>
@@ -89,10 +176,10 @@
       <div class="card">
         <h2>Tasks</h2>
         <div class="body">
-          <div class="bulk">
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">
             <button id="bulkComplete" class="btn">Mark selected done</button>
             <button id="bulkUndo" class="btn">Undo selected</button>
-            <button id="bulkDelete" class="btn ghost" style="border-color:#3a1f1f;color:#ffb4b4">Delete selected</button>
+            <button id="bulkDelete" class="btn ghost" style="border-color:#fee2e2;color:#b91c1c">Delete selected</button>
           </div>
           <div id="stats" class="stat"></div>
           <div id="list" class="list" aria-live="polite"></div>
@@ -109,8 +196,26 @@
     </div>
   </div>
 
-  <!-- Optional: set API base here when serving from EC2/Nginx -->
-  <script>window.API_BASE="http://localhost:8080/api";</script> <!--update with backend server ip -->
-  <script src="./app.js"></script>
+  <!-- Keep API base relative to the same origin -->
+  <script>window.API_BASE="/api";</script>
+
+  <!-- Logout + small bootstrapping -->
+  <script>
+    (function(){
+      const API_BASE = window.API_BASE || "/api";
+      const logoutBtn = document.getElementById("logoutBtn");
+      logoutBtn?.addEventListener("click", async () => {
+        try {
+          await fetch(`${API_BASE}/auth/logout`, { method: "POST", credentials: "include" });
+        } finally {
+          window.location.replace("home.html");
+        }
+      });
+    })();
+  </script>
+
+  <!-- Main app logic -->
+  <script>window.API_BASE="/api";</script>
+  <script src="./app.js?v=5"></script>
 </body>
 </html>
