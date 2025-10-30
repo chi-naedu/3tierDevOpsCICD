@@ -1,0 +1,57 @@
+# This buildspec.yml file should be in the root of your repository
+# It builds both Docker images, pushes them to ECR,
+# and generates the updated task definition file for CodePipeline.
+
+version: 0.2
+
+env:
+  variables:
+    # Set these environment variables in your CodeBuild project configuration
+    # ECR_REPO_URI_BACKEND: 123456789012.dkr.ecr.us-east-1.amazonaws.com/your-backend-repo
+    # ECR_REPO_URI_FRONTEND: 123456789012.dkr.ecr.us-east-1.amazonaws.com/your-frontend-repo
+    # CONTAINER_NAME_BACKEND: "backend-container"
+    # CONTAINER_NAME_FRONTEND: "frontend-container"
+
+phases:
+  install:
+    runtime-versions:
+      docker: 19 # A supported Docker runtime for CodeBuild
+  pre_build:
+    - echo Logging in to Amazon ECR...
+    # $AWS_ACCOUNT_ID and $AWS_REGION are provided by CodeBuild
+    - aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com
+    # Use the Git commit hash as a unique and traceable image tag
+    - IMAGE_TAG=$(echo $CODEBUILD_RESOLVED_SOURCE_VERSION | cut -c 1-7)
+
+  build:
+    - echo Building the Backend image...
+    - cd Backend
+    - docker build -t $ECR_REPO_URI_BACKEND:$IMAGE_TAG .
+    - docker push $ECR_REPO_URI_BACKEND:$IMAGE_TAG
+    - cd ..
+
+    - echo Building the Frontend image...
+    - cd Frontend
+    - docker build -t $ECR_REPO_URI_FRONTEND:$IMAGE_TAG .
+    - docker push $ECR_REPO_URI_FRONTEND:$IMAGE_TAG
+    - cd ..
+
+    - echo Generating new task definition file...
+    # This command reads your taskdef.json template,
+    # and uses 'jq' to replace the image URIs for both containers.
+    # It pipes the output from the first jq command into the second.
+    - |
+      cat taskdef.json |
+      jq --arg C_NAME "$CONTAINER_NAME_BACKEND" --arg IMAGE_URI "$ECR_REPO_URI_BACKEND:$IMAGE_TAG" \
+        '(.containerDefinitions[] | select(.name == $C_NAME)).image = $IMAGE_URI' |
+      jq --arg C_NAME "$CONTAINER_NAME_FRONTEND" --arg IMAGE_URI "$ECR_REPO_URI_FRONTEND:$IMAGE_TAG" \
+        '(.containerDefinitions[] | select(.name == $C_NAME)).image = $IMAGE_URI' \
+      > updated-task-def.json
+
+    - echo "Updated Task Definition:"
+    - cat updated-task-def.json
+
+artifacts:
+  files:
+    # This is the artifact your CodePipeline Deploy stage will use
+    - updated-task-def.json
