@@ -1,0 +1,53 @@
+version: 0.0
+os: linux
+
+# AppSpec file for Backend deployment
+# This file defines how CodeDeploy should deploy the backend application to EC2
+
+files:
+  - source: /
+    destination: /opt/app/backend
+    
+permissions:
+  - object: /opt/app/backend
+    pattern: "**"
+    owner: ec2-user
+    group: ec2-user
+    mode: 755
+  - object: /opt/app/backend/scripts
+    pattern: "**"
+    owner: ec2-user
+    group: ec2-user
+    mode: 755
+
+hooks:
+  BeforeInstall:
+    - location: scripts/stop-backend.sh
+      timeout: 300
+      runas: ec2-user
+    - location: scripts/cleanup-backend.sh
+      timeout: 120
+      runas: ec2-user
+      
+  AfterInstall:
+    - location: scripts/install-backend.sh
+      timeout: 600
+      runas: ec2-user
+    - location: scripts/migrate-database.sh
+      timeout: 300
+      runas: ec2-user
+      
+  ApplicationStart:
+    - location: scripts/start-backend.sh
+      timeout: 300
+      runas: ec2-user
+      
+  ApplicationStop:
+    - location: scripts/stop-backend.sh
+      timeout: 300
+      runas: ec2-user
+      
+  ValidateService:
+    - location: scripts/validate-backend.sh
+      timeout: 120
+      runas: ec2-user
