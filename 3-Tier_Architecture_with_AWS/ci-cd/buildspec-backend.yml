@@ -6,13 +6,13 @@ version: 0.2
 env:
   variables:
     NODE_VERSION: "18"
-    AWS_DEFAULT_REGION: "eu-west-2"
-  parameter-store:
+    AWS_DEFAULT_REGION: "us-east-1"
+  #parameter-store:
     # Store sensitive values in Parameter Store
-    DB_HOST: "ttmdb.cu7yq0owkt6z.us-east-1.rds.amazonaws.com"
-    DB_USER: "admin"
-    DB_PASSWORD: "testdbpassword123$"
-    DB_NAME: "ttmdb"
+    #DB_HOST: "ttmdb.cu7yq0owkt6z.us-east-1.rds.amazonaws.com"
+    #DB_USER: "admin"
+    #DB_PASSWORD: "testdbpassword123$"
+    #DB_NAME: "ttmdb"
   
 phases:
   install:
