@@ -22,7 +22,7 @@ resource "aws_codebuild_project" "frontend" {
   source {
     type            = "GITHUB"
     location        = "https://github.com/${var.github_owner}/${var.github_repo}.git"
-    buildspec       = "ci-cd/buildspec-frontend.yml"
+    buildspec       = "3-Tier_Architecture_with_AWS/ci-cd/buildspec-frontend.yml"
     git_clone_depth = 1
   }
 }
@@ -50,7 +50,7 @@ resource "aws_codebuild_project" "backend" {
   source {
     type            = "GITHUB"
     location        = "https://github.com/${var.github_owner}/${var.github_repo}.git"
-    buildspec       = "ci-cd/buildspec-backend.yml"
+    buildspec       = "3-Tier_Architecture_with_AWS/ci-cd/buildspec-backend.yml"
     git_clone_depth = 1
   }
 }
