@@ -9,10 +9,10 @@ env:
     AWS_DEFAULT_REGION: "eu-west-2"
   parameter-store:
     # Store sensitive values in Parameter Store
-    # DB_HOST: "/devops-demo/backend/db-host"
-    # DB_USER: "/devops-demo/backend/db-user"
-    # DB_PASSWORD: "/devops-demo/backend/db-password"
-    # DB_NAME: "/devops-demo/backend/db-name"
+    DB_HOST: "ttmdb.cu7yq0owkt6z.us-east-1.rds.amazonaws.com"
+    DB_USER: "admin"
+    DB_PASSWORD: "testdbpassword123$"
+    DB_NAME: "ttmdb"
   
 phases:
   install:
