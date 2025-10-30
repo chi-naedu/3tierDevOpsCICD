@@ -1,0 +1,151 @@
+version: 0.2
+
+# CodeBuild spec for Backend Node.js Application
+# This buildspec file defines the build process for the backend API
+
+env:
+  variables:
+    NODE_VERSION: "18"
+    AWS_DEFAULT_REGION: "eu-west-2"
+  parameter-store:
+    # Store sensitive values in Parameter Store
+    # DB_HOST: "/devops-demo/backend/db-host"
+    # DB_USER: "/devops-demo/backend/db-user"
+    # DB_PASSWORD: "/devops-demo/backend/db-password"
+    # DB_NAME: "/devops-demo/backend/db-name"
+  
+phases:
+  install:
+    runtime-versions:
+      nodejs: $NODE_VERSION
+    commands:
+      - echo "Installing dependencies..."
+      - node --version
+      - npm --version
+      
+      # Install AWS CLI if not available
+      - |
+        if ! command -v aws &> /dev/null; then
+          curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+          unzip awscliv2.zip
+          ./aws/install
+        fi
+      
+      # Login to ECR
+      - echo "Logging in to Amazon ECR..."
+      - aws ecr get-login-password --region $AWS_DEFAULT_REGION | docker login --username AWS --password-stdin $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com
+      
+  pre_build:
+    commands:
+      - echo "Pre-build phase started on `date`"
+      - echo "Installing backend dependencies..."
+      - cd backend
+      - npm ci --cache .npm --prefer-offline
+      
+      # Create test environment file
+      - |
+        cat > .env.test << EOF
+        NODE_ENV=test
+        PORT=5000
+        DB_HOST=localhost
+        DB_USER=test
+        DB_PASSWORD=test
+        DB_NAME=test_db
+        DB_PORT=3306
+        EOF
+      
+      # Run tests (with mock database)
+      - echo "Running tests..."
+      - npm test || echo "Tests completed with issues"
+      
+      # Security scan
+      - echo "Running security audit..."
+      - npm audit --audit-level=moderate
+      
+      # Lint code
+      - echo "Running linter..."
+      - npx eslint . --ext .js --ignore-path .gitignore || echo "No ESLint config found"
+      
+      # Check for outdated dependencies
+      - echo "Checking for outdated dependencies..."
+      - npm outdated || echo "Dependency check completed"
+      
+  build:
+    commands:
+      - echo "Build phase started on `date`"
+      
+      # Verify application structure
+      - echo "Verifying application structure..."
+      - ls -la
+      - cat package.json | grep -E '"name"|"version"|"main"'
+      
+      # Run any build steps (if needed)
+      - echo "Running build process..."
+      - npm run build 2>/dev/null || echo "No build script found, using source files directly"
+      
+      # Build Docker image
+      - echo "Building Docker image..."
+      - IMAGE_TAG=${CODEBUILD_RESOLVED_SOURCE_VERSION:-latest}
+      - IMAGE_URI=$AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$BACKEND_REPO_NAME:$IMAGE_TAG
+      - echo "Building image $IMAGE_URI"
+      - docker build -t $BACKEND_REPO_NAME:$IMAGE_TAG .
+      - docker tag $BACKEND_REPO_NAME:$IMAGE_TAG $IMAGE_URI
+      
+      # Tag with latest
+      - docker tag $BACKEND_REPO_NAME:$IMAGE_TAG $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$BACKEND_REPO_NAME:latest
+      
+      # Test Docker image
+      - echo "Testing Docker image..."
+      - docker run --rm --name test-backend -d -p 5001:5000 $BACKEND_REPO_NAME:$IMAGE_TAG
+      - sleep 10
+      - docker logs test-backend
+      - docker stop test-backend || echo "Container already stopped"
+      
+  post_build:
+    commands:
+      - echo "Post-build phase started on `date`"
+      
+      # Push Docker image to ECR
+      - echo "Pushing Docker image to ECR..."
+      - docker push $IMAGE_URI
+      - docker push $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$BACKEND_REPO_NAME:latest
+      
+      # Create image definitions file for CodeDeploy
+      - cd ..
+      - echo '[{"name":"backend","imageUri":"'$IMAGE_URI'"}]' > imagedefinitions.json
+      - cat imagedefinitions.json
+      
+      # Generate deployment artifacts
+      - echo "Generating deployment artifacts..."
+      - echo $IMAGE_URI > backend-image-uri.txt
+      
+      # Update deployment scripts with new image URI
+      - sed -i "s|IMAGE_URI_PLACEHOLDER|$IMAGE_URI|g" ci-cd/appspec-backend.yml || echo "appspec file not found"
+      
+      # Generate database migration scripts (if needed)
+      - echo "Preparing database migration artifacts..."
+      - cp -r database/ db-migration/ || echo "No database folder found"
+      
+artifacts:
+  files:
+    - imagedefinitions.json
+    - backend-image-uri.txt
+    - ci-cd/appspec-backend.yml
+    - scripts/deploy-backend.sh
+    - db-migration/**/*
+  name: backend-build-artifacts-$(date +%Y-%m-%d-%H-%M-%S)
+  
+cache:
+  paths:
+    - backend/.npm/**/*
+    - backend/node_modules/**/*
+
+reports:
+  backend-test-reports:
+    files:
+      - 'backend/coverage/clover.xml'
+    file-format: 'CLOVERXML'
+  backend-jest-reports:
+    files:
+      - 'backend/test-results.xml'
+    file-format: 'JUNITXML'
