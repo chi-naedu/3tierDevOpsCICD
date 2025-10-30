@@ -1,0 +1,39 @@
+# .gitignore
+# Terraform state and crash files
+*.tfstate
+*.tfstate.*
+crash.log
+
+# Terraform plan output
+*.tfplan
+
+# .terraform directory
+.terraform/
+
+# Sensitive variable files
+*.tfvars
+*.tfvars.json
+
+# Local override files
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+
+# Editor/IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+
+# Shell history and credentials
+*.pem
+*.key
+*.bak
+*.log
+
+# Docker
+*.env
+.env
+.docker/
