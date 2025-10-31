@@ -16,7 +16,7 @@ resource "aws_lb" "internal_lb" {
 # App Tier Target Group
 resource "aws_lb_target_group" "internal_tg" {
   name     = "app-internal-tg"
-  port     = 8080
+  port     = 5000
   protocol = "HTTP"
   vpc_id   = aws_vpc.main_vpc.id
 
@@ -25,11 +25,15 @@ resource "aws_lb_target_group" "internal_tg" {
     healthy_threshold   = 2
     interval            = 30
     matcher             = "200"
-    path                = "/app.html"
+    path                = "/api/health"
     port                = "traffic-port"
     protocol            = "HTTP"
     timeout             = 5
     unhealthy_threshold = 2
+  }
+
+  lifecycle {
+    create_before_destroy = true
   }
 
   tags = {
@@ -40,7 +44,7 @@ resource "aws_lb_target_group" "internal_tg" {
 # App Tier Listener
 resource "aws_lb_listener" "internal_listener" {
   load_balancer_arn = aws_lb.internal_lb.arn
-  port              = "8080"
+  port              = "5000"
   protocol          = "HTTP"
 
   default_action {
