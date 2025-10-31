@@ -1,4 +1,13 @@
 
+# ECR Repositories
+resource "aws_ecr_repository" "frontend" {
+  name         = "frontend-repo"
+}
+
+resource "aws_ecr_repository" "backend" {
+  name         = "backend-repo"
+}
+
 resource "aws_codebuild_project" "frontend" {
   name          = "frontend-build"
   service_role  = aws_iam_role.codebuild.arn
@@ -22,7 +31,7 @@ resource "aws_codebuild_project" "frontend" {
   source {
     type            = "GITHUB"
     location        = "https://github.com/${var.github_owner}/${var.github_repo}.git"
-    buildspec       = "ci-cd/buildspec-frontend.yml"
+    buildspec       = "3-Tier_Architecture_with_AWS/ci-cd/buildspec-frontend.yml"
     git_clone_depth = 1
   }
 }
@@ -50,7 +59,7 @@ resource "aws_codebuild_project" "backend" {
   source {
     type            = "GITHUB"
     location        = "https://github.com/${var.github_owner}/${var.github_repo}.git"
-    buildspec       = "ci-cd/buildspec-backend.yml"
+    buildspec       = "3-Tier_Architecture_with_AWS/ci-cd/buildspec-backend.yml"
     git_clone_depth = 1
   }
 }
@@ -87,6 +96,78 @@ resource "aws_iam_role_policy_attachment" "codebuild_developer" {
 resource "aws_iam_role_policy_attachment" "codebuild_s3" {
   role       = aws_iam_role.codebuild.name
   policy_arn = "arn:aws:iam::aws:policy/AmazonS3ReadOnlyAccess"
+}
+
+# S3 artifact upload policy for CodeBuild
+resource "aws_iam_policy" "codebuild_s3_artifact" {
+  name        = "codebuild-s3-artifact-policy"
+  description = "Allow CodeBuild to upload artifacts to S3"
+  
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "s3:PutObject",
+          "s3:GetObject",
+          "s3:GetObjectVersion",
+          "s3:GetBucketAcl",
+          "s3:GetBucketLocation"
+        ]
+        Resource = [
+          "${aws_s3_bucket.cicd_artifacts.arn}",
+          "${aws_s3_bucket.cicd_artifacts.arn}/*"
+        ]
+      }
+    ]
+  })
+}
+
+resource "aws_iam_role_policy_attachment" "codebuild_s3_artifact" {
+  role       = aws_iam_role.codebuild.name
+  policy_arn = aws_iam_policy.codebuild_s3_artifact.arn
+}
+
+# CodeBuild report group policy
+resource "aws_iam_policy" "codebuild_reports" {
+  name        = "codebuild-reports-policy"
+  description = "Allow CodeBuild to create and manage report groups"
+  
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "codebuild:CreateReportGroup",
+          "codebuild:CreateReport",
+          "codebuild:UpdateReport",
+          "codebuild:BatchPutTestCases",
+          "codebuild:BatchPutCodeCoverages"
+        ]
+        Resource = [
+          "arn:aws:codebuild:${var.aws_region}:${var.aws_account_id}:report-group/*"
+        ]
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "logs:CreateLogGroup",
+          "logs:CreateLogStream",
+          "logs:PutLogEvents"
+        ]
+        Resource = [
+          "arn:aws:logs:${var.aws_region}:${var.aws_account_id}:log-group:/aws/codebuild/*"
+        ]
+      }
+    ]
+  })
+}
+
+resource "aws_iam_role_policy_attachment" "codebuild_reports" {
+  role       = aws_iam_role.codebuild.name
+  policy_arn = aws_iam_policy.codebuild_reports.arn
 }
 
 resource "aws_codepipeline" "main" {
