@@ -48,11 +48,19 @@ resource "aws_ecs_task_definition" "backend" {
       portMappings = [{ containerPort = 5000, hostPort = 5000 }]
       environment = [
         { name = "NODE_ENV", value = "production" },
-        { name = "DB_HOST", value = var.db_host },
-        { name = "DB_USER", value = var.db_user },
-        { name = "DB_PASSWORD", value = var.db_password },
-        { name = "DB_NAME", value = var.db_name }
+        { name = "DB_HOST", value = aws.db_instance.main.endpoint},
+        { name = "DB_USER", value = aws.db_instance.main.username},
+        #{ name = "DB_PASSWORD", value = var.db_password },
+        { name = "DB_NAME", value = aws.db_instance.main.db_name }
       ]
+      secrets = [
+        {
+          name = "DB_PASSWORD"
+          valueFrom = aws_secretsmanager_secret.db_password.arn
+        }
+  
+      ]
+
       logConfiguration = {
         logDriver = "awslogs"
         options = {
@@ -196,7 +204,7 @@ resource "aws_autoscaling_group" "ecs" {
   }
 }
 
-#C
+#Cloudwatch logs setup
 resource "aws_cloudwatch_log_group" "frontend" {
   name              = "/ecs/frontend"
   retention_in_days = 7

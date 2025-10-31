@@ -53,8 +53,6 @@ variable "private_subnet_2_cidr" {
   default     = "10.0.4.0/24"
 }
 
-
-
 variable "instance_type" {
   description = "EC2 instance type"
   default     = "t3.micro"
@@ -81,30 +79,30 @@ variable "key_pair_name" {
 #   default     = "mydb"
 # }
 
-variable "db_host" {
-  description = "Database host endpoint"
-  type        = string
-}
+# variable "db_host" {
+#   description = "Database host endpoint"
+#   type        = string
+# }
 
-variable "db_user" {
-  description = "Database username"
-  type        = string
-}
+# variable "db_user" {
+#   description = "Database username"
+#   type        = string
+# }
 
-variable "db_password" {
-  description = "Database password"
-  type        = string
-}
+# variable "db_password" {
+#   description = "Database password"
+#   type        = string
+# }
 
-variable "db_name" {
-  description = "Database name"
-  type        = string
-}
+# variable "db_name" {
+#   description = "Database name"
+#   type        = string
+# }
 
-variable "db_username" {
-  description = "Username for the RDS database"
-  type        = string
-}
+# variable "db_username" {
+#   description = "Username for the RDS database"
+#   type        = string
+# }
 
 
 # Add CodeStar Connection ARN variable

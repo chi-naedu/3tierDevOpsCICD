@@ -13,9 +13,9 @@ resource "aws_db_instance" "database_master" {
   instance_class          = "db.t3.micro"
   allocated_storage       = 20
   storage_encrypted       = true
-  username                = var.db_username
-  password                = var.db_password
-  db_name                 = var.db_name
+  username                = "admin"
+  password                = "appdbpassword123$"
+  db_name                 = "app-db"
   db_subnet_group_name    = aws_db_subnet_group.main.name
   vpc_security_group_ids  = [aws_security_group.db_sg.id]
   multi_az                = false
@@ -32,7 +32,7 @@ resource "aws_db_instance" "database_slave" {
   instance_class           = "db.t3.micro"
   allocated_storage        = 20
   storage_encrypted        = true
-  password                 = var.db_password
+  password                 = "appdbpassword123$"
   db_subnet_group_name     = aws_db_subnet_group.main.name
   vpc_security_group_ids   = [aws_security_group.db_sg.id]
   multi_az                 = false
