@@ -1,7 +1,7 @@
 # This Dockerfile is for your Node.js backend API
 
-# Use an official Node.js runtime as a parent image
-FROM node:18-alpine
+# Use an official Node.js runtime from ECR Public
+FROM public.ecr.aws/docker/library/node:18-alpine
 
 # Set the working directory in the container
 WORKDIR /usr/src/app
@@ -18,7 +18,9 @@ RUN npm install --production
 COPY . .
 
 # Your server.js listens on process.env.PORT || 3000
-EXPOSE 3000
+# But we need to change it to 5000 to match ECS configuration
+ENV PORT=5000
+EXPOSE 5000
 
 # Define the command to run the app
 CMD ["node", "server.js"]

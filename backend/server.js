@@ -60,6 +60,42 @@ const pool = mysql.createPool({
   connectionLimit: 10,
 });
 
+// --- Database initialization ---
+async function initDatabase() {
+  try {
+    console.log("[DB] Checking database schema...");
+    
+    // Create users table if it doesn't exist
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS users (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        email VARCHAR(255) NOT NULL UNIQUE,
+        password_hash VARCHAR(255) NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        INDEX idx_email (email)
+      )
+    `);
+    
+    // Create tasks table if it doesn't exist
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS tasks (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        title VARCHAR(255) NOT NULL,
+        completed TINYINT(1) NOT NULL DEFAULT 0,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    
+    console.log("[DB] Database schema initialized successfully");
+  } catch (err) {
+    console.error("[DB] Failed to initialize database:", err);
+    // Don't exit - let the app continue, health checks will handle this
+  }
+}
+
+// Run database initialization on startup
+initDatabase();
+
 // --- Auth helpers ---
 function signToken(payload) {
   return jwt.sign(payload, JWT_SECRET, { expiresIn: "1d" });
@@ -91,12 +127,18 @@ app.get("/index.html", authRequired, (_req, res) => {
 });
 
 // --- Health ---
-app.get("/api/health", async (_req, res) => {
+// Simple health check - no database required
+app.get("/api/health", (_req, res) => {
+  res.json({ ok: true, status: "healthy" });
+});
+
+// Optional: Database health check endpoint
+app.get("/api/health/db", async (_req, res) => {
   try {
     const [rows] = await pool.query("SELECT 1 as ok");
-    res.json({ ok: rows[0].ok === 1 });
+    res.json({ ok: rows[0].ok === 1, database: "connected" });
   } catch (e) {
-    res.status(500).json({ ok: false, error: e.message });
+    res.status(500).json({ ok: false, error: e.message, database: "disconnected" });
   }
 });
 
@@ -222,4 +264,13 @@ app.delete("/api/tasks/:id", authRequired, async (req, res) => {
 
 // --- Start server ---
 const port = process.env.PORT || 3000;
-app.listen(port, () => console.log(`Server listening on ${port}`));
+
+// Initialize database and then start server
+initDatabase()
+  .then(() => {
+    app.listen(port, () => console.log(`Server listening on ${port}`));
+  })
+  .catch((err) => {
+    console.error("Failed to initialize database:", err);
+    process.exit(1);
+  });

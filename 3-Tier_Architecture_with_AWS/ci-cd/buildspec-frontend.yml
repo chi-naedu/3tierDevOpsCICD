@@ -1,0 +1,60 @@
+version: 0.2
+
+# CodeBuild spec for Frontend Static Files
+# This buildspec file defines the build process for the frontend application
+
+env:
+  variables:
+    AWS_DEFAULT_REGION: "eu-west-2"
+    FRONTEND_REPO_NAME: "frontend-repo"
+  
+phases:
+  install:
+    commands:
+      - echo "Installing dependencies..."
+      
+      # Login to ECR
+      - echo "Logging in to Amazon ECR..."
+      - aws ecr get-login-password --region $AWS_DEFAULT_REGION | docker login --username AWS --password-stdin $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com
+      
+  pre_build:
+    commands:
+      - echo "Pre-build phase started on `date`"
+      - cd frontend
+      - echo "Listing frontend files..."
+      - ls -la
+      
+  build:
+    commands:
+      - echo "Build phase started on `date`"
+      
+      # Build Docker image
+      - echo "Building Docker image..."
+      - IMAGE_TAG=${CODEBUILD_RESOLVED_SOURCE_VERSION:-latest}
+      - IMAGE_URI=$AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$FRONTEND_REPO_NAME:$IMAGE_TAG
+      - echo "Building image $IMAGE_URI"
+      - docker build -t $FRONTEND_REPO_NAME:$IMAGE_TAG .
+      - docker tag $FRONTEND_REPO_NAME:$IMAGE_TAG $IMAGE_URI
+      
+      # Tag with latest
+      - docker tag $FRONTEND_REPO_NAME:$IMAGE_TAG $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$FRONTEND_REPO_NAME:latest
+      
+  post_build:
+    commands:
+      - echo "Post-build phase started on `date`"
+      
+      # Push Docker image to ECR
+      - echo "Pushing Docker image to ECR..."
+      - docker push $IMAGE_URI
+      - docker push $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$FRONTEND_REPO_NAME:latest
+      
+      # Create image definitions file for ECS deployment
+      - cd ..
+      - echo '[{"name":"frontend","imageUri":"'$IMAGE_URI'"}]' > imagedefinitions.json
+      - cat imagedefinitions.json
+      - echo "Build completed successfully"
+      
+artifacts:
+  files:
+    - imagedefinitions.json
+  name: frontend-build-artifacts-$(date +%Y-%m-%d-%H-%M-%S)
