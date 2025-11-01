@@ -40,18 +40,11 @@ resource "aws_ecs_task_definition" "backend" {
       portMappings = [{ containerPort = 5000, hostPort = 5000 }]
       environment = [
         { name = "NODE_ENV", value = "production" },
-        { name = "DB_HOST", value = aws_db_instance.database_master.endpoint },
-        { name = "DB_USER", value = aws_db_instance.database_master.username },
-        #{ name = "DB_PASSWORD", value = var.db_password },
-        { name = "DB_NAME", value = aws_db_instance.database_master.db_name }
+        { name = "DB_HOST", value = var.db_host },
+        { name = "DB_USER", value = var.db_user },
+        { name = "DB_PASSWORD", value = var.db_password },
+        { name = "DB_NAME", value = var.db_name }
       ]
-      secrets = [
-        {
-          name = "database-password"
-          valueFrom = aws_secretsmanager_secret.database_password.id
-        }
-      ]
-
       logConfiguration = {
         logDriver = "awslogs"
         options = {
