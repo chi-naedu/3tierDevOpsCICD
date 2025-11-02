@@ -40,11 +40,19 @@ resource "aws_ecs_task_definition" "backend" {
       portMappings = [{ containerPort = 5000, hostPort = 5000 }]
       environment = [
         { name = "NODE_ENV", value = "production" },
-        { name = "DB_HOST", value = var.db_host },
-        { name = "DB_USER", value = var.db_user },
-        { name = "DB_PASSWORD", value = var.db_password },
-        { name = "DB_NAME", value = var.db_name }
+        { name = "DB_HOST", value = aws_db_instance.database_master.address }, 
+        { name = "DB_PORT", value = tostring(aws_db_instance.database_master.port) },
+        { name = "DB_USER", value = aws_db_instance.database_master.username },
+        { name = "DB_NAME", value = aws_db_instance.database_master.db_name }
       ]
+      secrets = [
+        {
+          name = "DB_PASSWORD"
+          valueFrom = aws_secretsmanager_secret.datab_password.arn
+        }
+
+      ]
+
       logConfiguration = {
         logDriver = "awslogs"
         options = {
@@ -64,11 +72,10 @@ resource "aws_ecs_service" "backend" {
   task_definition = aws_ecs_task_definition.backend.arn
   desired_count   = 2
   launch_type     = "EC2"
-  
-  health_check_grace_period_seconds = 600
-  
+  health_check_grace_period_seconds = 600  
   deployment_maximum_percent         = 200
   deployment_minimum_healthy_percent = 50
+  
   
   deployment_circuit_breaker {
     enable   = false
@@ -82,7 +89,9 @@ resource "aws_ecs_service" "backend" {
     container_port   = 5000
   }
   
-  depends_on = [aws_lb_listener.internal_listener]
+  depends_on = [aws_lb_listener_rule.api_rule,
+                aws_iam_role_policy_attachment.ecs_task_execution_policy,
+                aws_iam_role_policy_attachment.ecs_task_secrets_attachment]
 }
 
 # ECS Task Definition for Frontend
@@ -138,7 +147,9 @@ resource "aws_ecs_service" "frontend" {
     container_port   = 80
   }
   
-  depends_on = [aws_lb_listener.internet_facing_listener]
+  depends_on = [aws_lb_listener.internet_facing_listener,
+                aws_iam_role_policy_attachment.ecs_task_execution_policy,
+                aws_iam_role_policy_attachment.ecs_task_secrets_attachment]
 }
 
 # ECS Container Instance IAM Role
@@ -157,9 +168,34 @@ data "aws_iam_policy_document" "ecs_instance_assume_role_policy" {
   }
 }
 
+data "aws_iam_policy_document" "ecs_task_execution_secrets" {
+  statement {
+    effect = "Allow"
+    actions = [
+      "secretsmanager:GetSecretValue",
+      "kms:Decrypt"  # This is required if your secret is encrypted with a custom KMS key
+    ]
+    # This is a best practice. It restricts the role to only
+    # getting the secrets you specify.
+    resources = [
+      aws_secretsmanager_secret.datab_password.arn      # Add the ARN of any other secrets your tasks need
+    ]
+  }
+}
+
+resource "aws_iam_policy" "ecs_task_execution_secrets" {
+  name   = "ecs-task-execution-secrets-policy"
+  policy = data.aws_iam_policy_document.ecs_task_execution_secrets.json
+}
+
 resource "aws_iam_role_policy_attachment" "ecs_instance_policy" {
   role       = aws_iam_role.ecs_instance_role.name
   policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonEC2ContainerServiceforEC2Role"
+}
+
+resource "aws_iam_role_policy_attachment" "ecs_task_secrets_attachment" {
+  role       = aws_iam_role.ecs_task_execution.name
+  policy_arn = aws_iam_policy.ecs_task_execution_secrets.arn
 }
 
 resource "aws_iam_instance_profile" "ecs_instance_profile" {

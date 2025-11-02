@@ -139,7 +139,7 @@ resource "aws_security_group" "ecs_instance_sg" {
     from_port       = 5000
     to_port         = 5000
     protocol        = "tcp"
-    security_groups = [aws_security_group.alb_app_sg.id]
+    security_groups = [aws_security_group.alb_web_sg.id]
   }
 
   # Allow SSH from bastion (optional)
@@ -173,3 +173,4 @@ resource "aws_security_group_rule" "alb_app_from_ecs" {
   source_security_group_id = aws_security_group.ecs_instance_sg.id
   description              = "Allow ECS instances (frontend containers) to access internal ALB"
 }
+
