@@ -46,7 +46,7 @@ Internet → Internet-Facing ALB (Public) → Frontend (ECS/Nginx)
 ```
 DevOpsProject/
 ├── 3-Tier_Architecture_with_AWS/      # Terraform IaC
-│   ├── providers.tf                   # AWS provider configuration
+│   ├── main.tf                   # AWS provider configuration
 │   ├── variables.tf                   # Input variables
 │   ├── terraform.tfvars               # Variable values (gitignored)
 │   ├── networking.tf                  # VPC, subnets, IGW, NAT
