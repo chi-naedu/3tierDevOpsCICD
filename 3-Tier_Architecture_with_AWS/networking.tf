@@ -96,18 +96,3 @@ resource "aws_route_table_association" "private_subnet_2_association" {
   subnet_id      = aws_subnet.private_subnet_2.id
   route_table_id = aws_route_table.private_route_table.id
 }
-
-# 1. Creates a DHCP Options Set that uses Amazon's internal DNS
-resource "aws_vpc_dhcp_options" "main" {
-  domain_name_servers = ["AmazonProvidedDNS"]
-
-  tags = {
-    Name = "main-dhcp-options"
-  }
-}
-
-# 2. Associates this new set with your main VPC
-resource "aws_vpc_dhcp_options_association" "main" {
-  vpc_id          = aws_vpc.main_vpc.id
-  dhcp_options_id = aws_vpc_dhcp_options.main.id
-}

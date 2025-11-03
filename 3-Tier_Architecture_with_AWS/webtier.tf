@@ -48,22 +48,3 @@ resource "aws_lb_listener" "internet_facing_listener" {
     target_group_arn = aws_lb_target_group.internet_facing_tg.arn
   }
 }
-
-# This is the new rule for your API
-resource "aws_lb_listener_rule" "api_rule" {
-  listener_arn = aws_lb_listener.internet_facing_listener.arn
-  priority     = 10 # Priority 10 (runs before the default)
-
-  action {
-    type             = "forward"
-    # This MUST point to your BACKEND's target group
-    target_group_arn = aws_lb_target_group.internal_tg.arn
-  }
-
-  condition {
-    path_pattern {
-      # This tells it to catch all API requests
-      values = ["/api/*"]
-    }
-  }
-}

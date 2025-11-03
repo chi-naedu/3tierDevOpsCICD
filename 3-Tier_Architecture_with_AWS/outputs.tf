@@ -20,10 +20,10 @@ output "internet_facing_lb_dns" {
   value       = aws_lb.internet_facing_lb.dns_name
 }
 
-# output "internal_lb_dns" {
-#   description = "DNS name of the internal load balancer"
-#   value       = aws_lb.internal_lb.dns_name
-# }
+output "internal_lb_dns" {
+  description = "DNS name of the internal load balancer"
+  value       = aws_lb.internal_lb.dns_name
+}
 
 output "bastion_host_public_ip" {
   description = "Public IP address of the bastion host"

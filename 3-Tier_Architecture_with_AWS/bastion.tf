@@ -7,7 +7,15 @@ resource "aws_instance" "bastion_host" {
   vpc_security_group_ids      = [aws_security_group.bastion_sg.id]
   key_name                    = var.key_pair_name
   associate_public_ip_address = true
-  tags = { Name = "bastion-host" }
+  iam_instance_profile        = aws_iam_instance_profile.bastion_profile.name
+  
+  user_data_base64 = base64encode(templatefile("${path.module}/user_data_bastion.sh", {}))
+  
+  tags = { 
+    Name = "bastion-host"
+    Environment = var.environment
+    Project = "3tier-app"
+  }
 }
 
 data "aws_ami" "amazon_linux" {

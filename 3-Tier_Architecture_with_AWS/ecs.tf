@@ -9,6 +9,12 @@ resource "aws_iam_role" "ecs_task_execution" {
   assume_role_policy = data.aws_iam_policy_document.ecs_task_assume_role_policy.json
 }
 
+# Alias for compatibility with SSM module
+resource "aws_iam_role" "ecs_task_execution_role" {
+  name = "ecsTaskExecutionRoleSSM"
+  assume_role_policy = data.aws_iam_policy_document.ecs_task_assume_role_policy.json
+}
+
 data "aws_iam_policy_document" "ecs_task_assume_role_policy" {
   statement {
     actions = ["sts:AssumeRole"]
@@ -24,6 +30,11 @@ resource "aws_iam_role_policy_attachment" "ecs_task_execution_policy" {
   policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
 }
 
+resource "aws_iam_role_policy_attachment" "ecs_task_execution_role_policy" {
+  role       = aws_iam_role.ecs_task_execution_role.name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
+}
+
 # ECS Task Definitions (example for backend)
 resource "aws_ecs_task_definition" "backend" {
   family                   = "backend-task"
@@ -32,27 +43,52 @@ resource "aws_ecs_task_definition" "backend" {
   cpu                      = "256"
   memory                   = "512"
   execution_role_arn       = aws_iam_role.ecs_task_execution.arn
-  container_definitions    = jsonencode([
+  task_role_arn           = aws_iam_role.ecs_task_execution.arn
+  
+  container_definitions = jsonencode([
     {
       name      = "backend"
       image     = "${aws_ecr_repository.backend.repository_url}:latest"
       essential = true
       portMappings = [{ containerPort = 5000, hostPort = 5000 }]
+      
+      # Non-sensitive environment variables
       environment = [
-        { name = "NODE_ENV", value = "production" },
-        { name = "DB_HOST", value = aws_db_instance.database_master.address }, 
-        { name = "DB_PORT", value = tostring(aws_db_instance.database_master.port) },
-        { name = "DB_USER", value = aws_db_instance.database_master.username },
-        { name = "DB_NAME", value = aws_db_instance.database_master.db_name }
+        { name = "NODE_ENV", value = "production" }
       ]
+      
+      # Secrets from SSM Parameter Store and Secrets Manager
       secrets = [
         {
-          name = "DB_PASSWORD"
-          valueFrom = aws_secretsmanager_secret.datab_password.arn
+          name      = "DB_HOST"
+          valueFrom = aws_ssm_parameter.database_host.arn
+        },
+        {
+          name      = "DB_USER"
+          valueFrom = aws_ssm_parameter.database_username.arn
+        },
+        {
+          name      = "DB_NAME"
+          valueFrom = aws_ssm_parameter.database_name.arn
+        },
+        {
+          name      = "DB_PORT"
+          valueFrom = aws_ssm_parameter.database_port.arn
+        },
+        {
+          name      = "APP_ENV"
+          valueFrom = aws_ssm_parameter.app_environment.arn
+        },
+        {
+          name      = "DB_PASSWORD"
+          valueFrom = aws_secretsmanager_secret.database_password.arn
+        },
+        {
+          name      = "JWT_SECRET"
+          valueFrom = aws_secretsmanager_secret.jwt_secret.arn
         }
-
       ]
-
+      
       logConfiguration = {
         logDriver = "awslogs"
         options = {
@@ -63,6 +99,17 @@ resource "aws_ecs_task_definition" "backend" {
       }
     }
   ])
+  
+  # Ensure SSM resources are created first
+  depends_on = [
+    aws_ssm_parameter.database_host,
+    aws_ssm_parameter.database_username,
+    aws_ssm_parameter.database_name,
+    aws_ssm_parameter.database_port,
+    aws_ssm_parameter.app_environment,
+    aws_secretsmanager_secret_version.database_password,
+    aws_secretsmanager_secret_version.jwt_secret
+  ]
 }
 
 # ECS Service (example for backend)
@@ -72,10 +119,11 @@ resource "aws_ecs_service" "backend" {
   task_definition = aws_ecs_task_definition.backend.arn
   desired_count   = 2
   launch_type     = "EC2"
-  health_check_grace_period_seconds = 600  
+  
+  health_check_grace_period_seconds = 600
+  
   deployment_maximum_percent         = 200
   deployment_minimum_healthy_percent = 50
-  
   
   deployment_circuit_breaker {
     enable   = false
@@ -89,9 +137,7 @@ resource "aws_ecs_service" "backend" {
     container_port   = 5000
   }
   
-  depends_on = [aws_lb_listener_rule.api_rule,
-                aws_iam_role_policy_attachment.ecs_task_execution_policy,
-                aws_iam_role_policy_attachment.ecs_task_secrets_attachment]
+  depends_on = [aws_lb_listener.internal_listener]
 }
 
 # ECS Task Definition for Frontend
@@ -102,15 +148,32 @@ resource "aws_ecs_task_definition" "frontend" {
   cpu                      = "256"
   memory                   = "512"
   execution_role_arn       = aws_iam_role.ecs_task_execution.arn
-  container_definitions    = jsonencode([
+  task_role_arn           = aws_iam_role.ecs_task_execution.arn
+  
+  container_definitions = jsonencode([
     {
       name      = "frontend"
       image     = "${aws_ecr_repository.frontend.repository_url}:latest"
       essential = true
       portMappings = [{ containerPort = 80, hostPort = 80 }]
+      
+      # Non-sensitive environment variables
       environment = [
         { name = "NODE_ENV", value = "production" }
       ]
+      
+      # Frontend configuration from SSM
+      secrets = [
+        {
+          name      = "API_URL"
+          valueFrom = aws_ssm_parameter.frontend_api_url.arn
+        },
+        {
+          name      = "APP_ENV"
+          valueFrom = aws_ssm_parameter.app_environment.arn
+        }
+      ]
+      
       logConfiguration = {
         logDriver = "awslogs"
         options = {
@@ -121,6 +184,12 @@ resource "aws_ecs_task_definition" "frontend" {
       }
     }
   ])
+  
+  # Ensure SSM resources are created first
+  depends_on = [
+    aws_ssm_parameter.frontend_api_url,
+    aws_ssm_parameter.app_environment
+  ]
 }
 
 # ECS Service for Frontend
@@ -147,9 +216,7 @@ resource "aws_ecs_service" "frontend" {
     container_port   = 80
   }
   
-  depends_on = [aws_lb_listener.internet_facing_listener,
-                aws_iam_role_policy_attachment.ecs_task_execution_policy,
-                aws_iam_role_policy_attachment.ecs_task_secrets_attachment]
+  depends_on = [aws_lb_listener.internet_facing_listener]
 }
 
 # ECS Container Instance IAM Role
@@ -168,34 +235,9 @@ data "aws_iam_policy_document" "ecs_instance_assume_role_policy" {
   }
 }
 
-data "aws_iam_policy_document" "ecs_task_execution_secrets" {
-  statement {
-    effect = "Allow"
-    actions = [
-      "secretsmanager:GetSecretValue",
-      "kms:Decrypt"  # This is required if your secret is encrypted with a custom KMS key
-    ]
-    # This is a best practice. It restricts the role to only
-    # getting the secrets you specify.
-    resources = [
-      aws_secretsmanager_secret.datab_password.arn      # Add the ARN of any other secrets your tasks need
-    ]
-  }
-}
-
-resource "aws_iam_policy" "ecs_task_execution_secrets" {
-  name   = "ecs-task-execution-secrets-policy"
-  policy = data.aws_iam_policy_document.ecs_task_execution_secrets.json
-}
-
 resource "aws_iam_role_policy_attachment" "ecs_instance_policy" {
   role       = aws_iam_role.ecs_instance_role.name
   policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonEC2ContainerServiceforEC2Role"
-}
-
-resource "aws_iam_role_policy_attachment" "ecs_task_secrets_attachment" {
-  role       = aws_iam_role.ecs_task_execution.name
-  policy_arn = aws_iam_policy.ecs_task_execution_secrets.arn
 }
 
 resource "aws_iam_instance_profile" "ecs_instance_profile" {
