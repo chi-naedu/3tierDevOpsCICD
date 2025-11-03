@@ -12,15 +12,9 @@ Production-ready 3-tier web application on AWS with Terraform IaC and automated 
 - **Database Tier**: MySQL RDS with master-slave replication
 
 **Key Stats:**
-- ✅ All tiers operational | 9/9 tests passing
 - ✅ Cross-AZ deployment (eu-west-2a/b)
 - ✅ Automated CI/CD (5-stage pipeline)
 - ✅ Secrets management (AWS SSM & Secrets Manager)
-
-**Get Application URL:**
-```bash
-cd 3-Tier_Architecture_with_AWS && terraform output internet_facing_lb_dns
-```
 
 ---
 
@@ -44,22 +38,6 @@ Internet → Internet-Facing ALB (Public) → Frontend (ECS/Nginx)
 **DevOps:** Terraform IaC, CI/CD pipeline, Docker containers, ECR registry, CloudWatch logging  
 **Security:** Security groups, Private subnets, Encrypted storage, Secrets management, IAM least privilege
 
-
----
-
-## 📦 Prerequisites
-
-- **AWS CLI** (v2+), **Terraform** (v1.5+), **Docker** (20.10+), **Git**, **Node.js** (18+)
-- AWS account with IAM permissions for EC2, ECS, RDS, VPC, ALB, CodePipeline, ECR
-- GitHub repository with CodeStar Connection (create in AWS Console → Developer Tools → Connections)
-
-**Configure AWS:**
-```bash
-aws configure
-# Region: eu-west-2
-```
-
----
 
 ---
 
@@ -188,13 +166,6 @@ ssh -i /path/to/keypair.pem ec2-user@$BASTION_IP
 sudo yum install -y mariadb
 mysql -h <db-endpoint> -u mydbuser -p mydatabase
 ```
-
-**View Logs:**
-```bash
-aws logs tail /ecs/frontend --follow
-aws logs tail /ecs/backend --follow
-```
-
 ---
 
 ## 🔒 Security
@@ -212,8 +183,11 @@ aws logs tail /ecs/backend --follow
 ## 🔄 CI/CD Pipeline
 
 **Trigger:** Push to `main` branch
+
 **Stages:** Source (GitHub) → Build (CodeBuild) → Deploy (ECS)
+
 **Build Specs:** `buildspec-frontend.yml`, `buildspec-backend.yml`
+
 **Artifacts:** Docker images → ECR → ECS services
 
 **Monitor Pipeline:**
@@ -338,38 +312,7 @@ aws cloudwatch get-metric-statistics \
 
 ---
 
-## 🧹 Cleanup
 
-### Destroy All Infrastructure
-```bash
-cd 3-Tier_Architecture_with_AWS
-
-# Preview what will be destroyed
-terraform plan -destroy
-
-# Destroy all resources
-terraform destroy
-
-# Confirm with: yes
-```
-
-### Manual Cleanup (if needed)
-```bash
-# Delete ECS services first
-aws ecs update-service \
-  --cluster three-tier-ecs-cluster \
-  --service backend-service \
-  --desired-count 0 \
-  --region eu-west-2
-
-aws ecs delete-service \
-  --cluster three-tier-ecs-cluster \
-  --service backend-service \
-  --force \
-  --region eu-west-2
-
-# Then run terraform destroy
-terraform destroy
 ```
 
 ### Cost Considerations
